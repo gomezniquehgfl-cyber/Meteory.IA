@@ -106,11 +106,21 @@ jobs:
           }
           EOF
 
-          # Create build.gradle (root) - Compatible with Gradle 8+ settings repositories
+          # Create build.gradle (root)
           cat << 'EOF' > android/build.gradle
           buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
               dependencies {
                   classpath 'com.android.tools.build:gradle:8.1.0'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
               }
           }
           task clean(type: Delete) {
