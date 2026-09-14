@@ -41,9 +41,21 @@ jobs:
           mkdir -p android/app/src/main/res/layout
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/assets
+          mkdir -p android/app/src/main/res/mipmap-mdpi
+          mkdir -p android/app/src/main/res/mipmap-hdpi
+          mkdir -p android/app/src/main/res/mipmap-xhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android/app/src/main/res/mipmap-xxxhdpi
 
           # Copy built web assets to android assets for standalone app
           cp -r dist/* android/app/src/main/assets/
+          
+          # Copy icons
+          cp public/icon.png android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          cp public/icon.png android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          cp public/icon.png android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          cp public/pwa-192x192.png android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          cp public/pwa-512x512.png android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
 
           # Create gradle.properties with AndroidX support enabled
           cat << 'EOF' > android/gradle.properties
@@ -62,7 +74,9 @@ jobs:
               
               <application
                   android:allowBackup="true"
-                  android:label="Meteory.IA"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
+                  android:label="Meteory IA"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.NoActionBar"
                   android:usesCleartextTraffic="true">
@@ -108,6 +122,7 @@ jobs:
           dependencies {
               implementation 'androidx.appcompat:appcompat:1.6.1'
               implementation 'com.google.android.material:material:1.9.0'
+              implementation 'androidx.webkit:webkit:1.8.0'
           }
           EOF
 
@@ -163,11 +178,16 @@ jobs:
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
           import android.webkit.WebChromeClient;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebResourceResponse;
           import android.Manifest;
           import android.content.pm.PackageManager;
           import androidx.core.app.ActivityCompat;
           import androidx.core.content.ContextCompat;
           import androidx.appcompat.app.AppCompatActivity;
+          import androidx.webkit.WebViewAssetLoader;
+          import androidx.webkit.WebViewClientCompat;
+          import android.net.Uri;
 
           public class MainActivity extends AppCompatActivity {
               private WebView webView;
@@ -189,11 +209,20 @@ jobs:
                   settings.setAllowFileAccess(true);
                   settings.setAllowContentAccess(true);
 
-                  webView.setWebViewClient(new WebViewClient() {
+                  final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                          .addPathHandler("/", new WebViewAssetLoader.AssetsPathHandler(this))
+                          .build();
+
+                  webView.setWebViewClient(new WebViewClientCompat() {
                       @Override
-                      public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                          view.loadUrl(url);
-                          return true;
+                      public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                          return assetLoader.shouldInterceptRequest(request.getUrl());
+                      }
+
+                      @Override
+                      @SuppressWarnings("deprecation")
+                      public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                          return assetLoader.shouldInterceptRequest(Uri.parse(url));
                       }
                   });
 
@@ -208,7 +237,7 @@ jobs:
                       ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_REQUEST_CODE);
                   }
 
-                  webView.loadUrl("file:///android_asset/index.html");
+                  webView.loadUrl("https://appassets.androidplatform.net/index.html");
               }
 
               @Override
@@ -221,7 +250,6 @@ jobs:
               }
           }
           EOF
-
           cd android
           gradle wrapper --gradle-version 8.8
           ./gradlew assembleDebug
