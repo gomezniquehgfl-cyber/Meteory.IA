@@ -1,0 +1,26 @@
+{
+  "packageId": "com.meteory.ia.app",
+  "host": "meteory-ia.app",
+  "name": "Meteory.IA",
+  "shortName": "Meteory.IA",
+  "startUrl": "/",
+  "display": "standalone",
+  "themeColor": "#070914",
+  "backgroundColor": "#070914",
+  "iconUrl": "/icon.jpg",
+  "maskableIconUrl": "/icon.jpg",
+  "monochromeIconUrl": "/icon.jpg",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "generator": "Bubblewrap CLI",
+  "webManifestUrl": "",
+  "fallbackType": "customtabs",
+  "features": {},
+  "shortcuts": [],
+  "shareTarget": {}
+}
