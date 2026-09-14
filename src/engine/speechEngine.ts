@@ -205,13 +205,21 @@ export async function speakTextWithGender(
 
   notifyAudioStatus(true, cleaned.slice(0, 45));
 
-  // 1. Intentar motor neuronal XTTS v2 en servidor usando streaming directo por GET para máximo rendimiento (Sin tirones de Base64)
+  // 1. Intentar motor neuronal XTTS v2 en servidor descargando como Blob y reproduciendo localmente (Evita 100% de CORS/bloqueos en WebView Android)
   try {
     const streamUrl = getApiUrl(`/api/tts/stream?text=${encodeURIComponent(cleaned)}&gender=${gender}`);
-    const audio = new Audio(streamUrl);
+    const response = await fetch(streamUrl);
+    if (!response.ok) {
+      throw new Error(`Servidor de síntesis respondió con código: ${response.status}`);
+    }
+    const blob = await response.blob();
+    const localUrl = URL.createObjectURL(blob);
+
+    const audio = new Audio(localUrl);
     currentAudioElement = audio;
 
     audio.onended = () => {
+      URL.revokeObjectURL(localUrl);
       if (currentAudioElement === audio) {
         currentAudioElement = null;
         notifyAudioStatus(false);
@@ -220,7 +228,8 @@ export async function speakTextWithGender(
     };
 
     audio.onerror = (e) => {
-      console.warn('Error al reproducir streaming de XTTS v2, activando respaldo nativo:', e);
+      console.warn('Error al reproducir audio XTTS v2 (Blob local), activando respaldo nativo:', e);
+      URL.revokeObjectURL(localUrl);
       if (currentAudioElement === audio) {
         currentAudioElement = null;
       }
@@ -230,7 +239,7 @@ export async function speakTextWithGender(
     await audio.play();
     return true;
   } catch (err) {
-    console.warn('Fallo al reproducir streaming XTTS v2, activando respaldo nativo:', err);
+    console.warn('Fallo al descargar/reproducir XTTS v2, activando respaldo nativo:', err);
   }
 
   // 2. Respaldo nativo de voz de dispositivo (Google TTS / WebSpeech) si falla la API

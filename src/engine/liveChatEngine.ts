@@ -1,5 +1,5 @@
 import { LiveChatMessage, LiveUser } from '../types';
-import { getApiUrl } from '../lib/apiConfig';
+import { getApiUrl, getWsUrl } from '../lib/apiConfig';
 
 type Listener<T> = (data: T) => void;
 
@@ -181,9 +181,7 @@ class LiveChatEngine {
     this.shouldReconnect = true;
 
     try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/live-chat`;
+      const wsUrl = getWsUrl('/ws/live-chat');
 
       this.ws = new WebSocket(wsUrl);
 
