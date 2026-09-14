@@ -81,6 +81,7 @@ jobs:
               id 'com.android.application'
           }
           android {
+              namespace 'com.meteory.ia.app'
               compileSdk 34
               defaultConfig {
                   applicationId "com.meteory.ia.app"
@@ -106,7 +107,7 @@ jobs:
           }
           EOF
 
-          # Create build.gradle (root) with buildscript and allprojects repositories
+          # Create build.gradle (root) with AGP 8.5.0 compatible with Gradle 8.5+ / 9+
           cat << 'EOF' > android/build.gradle
           buildscript {
               repositories {
@@ -114,7 +115,7 @@ jobs:
                   mavenCentral()
               }
               dependencies {
-                  classpath 'com.android.tools.build:gradle:8.1.0'
+                  classpath 'com.android.tools.build:gradle:8.5.0'
               }
           }
           allprojects {
@@ -218,7 +219,7 @@ jobs:
           EOF
 
           cd android
-          gradle wrapper --gradle-version 8.4
+          gradle wrapper --gradle-version 8.8
           ./gradlew assembleDebug
 
       - name: Upload APK Artifact
