@@ -4,6 +4,7 @@ import { analyzeContextualFollowUp, extractCanonicalTopic } from './contextMemor
 import { GREETING_RULES, UNKNOWN_RESPONSES } from './greetingsData';
 import { detectMathIntent, solveMath } from './mathEngine';
 import { detectTimeIntent, resolveTimeQuery } from './timeEngine';
+import { findBatteryAnswer } from './batteryQuestions';
 
 /**
  * Normaliza un texto removiendo tildes, signos de puntuación extraños
@@ -288,6 +289,12 @@ export function detectSearchIntent(
     return { isSearch: false, topic: '', reasoning: '' };
   }
 
+  // Prevenir que consultas sobre batería o energía del dispositivo se confundan con búsquedas web ("batería electrónica")
+  const batteryAnswer = findBatteryAnswer(input);
+  if (batteryAnswer) {
+    return { isSearch: false, topic: '', reasoning: '' };
+  }
+
   const trimmed = input.trim();
   const normalized = normalizeText(input);
 
@@ -396,7 +403,8 @@ export function detectSearchIntent(
  */
 export function processInput(
   input: string,
-  history?: ChatMessage[]
+  history?: ChatMessage[],
+  batteryStatusStr?: string
 ): {
   reply: string;
   classification: ClassificationResult;
@@ -564,6 +572,26 @@ export function processInput(
         isTimeDate: true,
       },
       timeData: timeSolution.data,
+    };
+  }
+
+  // 2.5. Evaluar si es consulta sobre batería (de las 100 preguntas o estado actual)
+  const batteryReply = findBatteryAnswer(input, batteryStatusStr);
+  if (batteryReply) {
+    const endTime = performance.now();
+    const executionTimeMs = Math.round((endTime - startTime) * 100) / 100;
+    return {
+      reply: batteryReply,
+      classification: {
+        category: 'conversacion_personal',
+        categoryName: 'Análisis de Batería y Energía',
+        confidence: 99,
+        tokens,
+        normalizedText: normalized,
+        executionTimeMs,
+        reasoning: 'Consulta sobre batería o rendimiento energético del dispositivo.',
+        isGreeting: false,
+      },
     };
   }
 

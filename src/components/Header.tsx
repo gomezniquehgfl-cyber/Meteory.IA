@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, MessageSquare, Cpu, Volume2, VolumeX, Plus, Radio, Zap } from 'lucide-react';
+import { Sparkles, MessageSquare, Cpu, Volume2, VolumeX, Plus, Zap, Battery, BatteryCharging } from 'lucide-react';
 import { VoiceGender } from '../engine/speechEngine';
 import { liveChatEngine } from '../engine/liveChatEngine';
+import { BatteryInfo } from '../engine/batteryMonitor';
 
 interface HeaderProps {
   onResetChat: () => void;
@@ -16,6 +17,8 @@ interface HeaderProps {
   voiceGender: VoiceGender;
   onToggleVoiceGender: () => void;
   isAudioPlaying?: boolean;
+  batteryInfo?: BatteryInfo;
+  onOpenBatteryInspector?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   voiceGender,
   onToggleVoiceGender,
   isAudioPlaying = false,
+  batteryInfo,
+  onOpenBatteryInspector,
 }) => {
   const [onlineCount, setOnlineCount] = useState<number>(liveChatEngine.onlineCount);
 
@@ -41,6 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
     });
     return unsub;
   }, []);
+
+  const pct = batteryInfo ? Math.round(batteryInfo.level * 100) : 85;
+  const isLow = pct <= 10;
 
   return (
     <header className="border-b border-indigo-950/80 bg-[#070914]/90 backdrop-blur-xl sticky top-0 z-30 pt-[max(0.6rem,env(safe-area-inset-top))] pb-2.5 px-3 sm:px-6 w-full max-w-full overflow-hidden shadow-2xl shadow-black/60">
@@ -90,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <p className="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1.5 truncate font-medium">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400 shrink-0"></span>
-              <span className="hidden sm:inline text-slate-400">100% Autónoma • Memoria Cósmica & Web</span>
+              <span className="hidden sm:inline text-slate-400">100% Autónoma • Memoria Cósmica & Batería</span>
               <span className="sm:hidden text-amber-400 font-medium">En línea</span>
             </p>
           </div>
@@ -98,6 +106,27 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Botón Indicador de Batería */}
+          {onOpenBatteryInspector && (
+            <button
+              id="open-battery-inspector-btn"
+              onClick={onOpenBatteryInspector}
+              title={`Batería del dispositivo: ${pct}% - Ver análisis de batería y 100 preguntas`}
+              className={`px-2 py-1.5 sm:px-2.5 sm:py-2 rounded-xl border text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer min-h-[38px] ${
+                isLow
+                  ? 'bg-rose-500/30 border-rose-500/60 text-rose-200 animate-pulse shadow-md shadow-rose-950'
+                  : 'bg-[#0d1226] border-indigo-950/90 text-emerald-300 hover:bg-[#141b38] hover:border-emerald-500/40'
+              }`}
+            >
+              {batteryInfo?.charging ? (
+                <BatteryCharging className="w-4 h-4 text-emerald-400 animate-pulse" />
+              ) : (
+                <Battery className={`w-4 h-4 ${isLow ? 'text-rose-400' : 'text-emerald-400'}`} />
+              )}
+              <span className="font-mono text-xs">{pct}%</span>
+            </button>
+          )}
+
           <button
             id="quick-new-chat-btn"
             onClick={onNewSession}
@@ -188,7 +217,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-
-
-

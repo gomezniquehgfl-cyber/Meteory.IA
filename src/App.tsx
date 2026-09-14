@@ -17,6 +17,7 @@ import { Header } from './components/Header';
 import { ChatMessageItem } from './components/ChatMessageItem';
 import { ChatInput } from './components/ChatInput';
 import { BrainInspectorModal } from './components/BrainInspectorModal';
+import { BatteryInspectorModal } from './components/BatteryInspectorModal';
 import { SessionSidebar } from './components/SessionSidebar';
 import { SuggestedPrompts } from './components/SuggestedPrompts';
 import { LiveVoiceModal } from './components/LiveVoiceModal';
@@ -28,7 +29,8 @@ import {
   stopSpeaking,
   subscribeAudioStatus,
 } from './engine/speechEngine';
-import { Sparkles, ShieldCheck, Globe, Calculator, Clock, MessageSquare, Volume2, VolumeX, Trash2, RotateCcw, Mic } from 'lucide-react';
+import { Sparkles, Globe, Calculator, Clock, MessageSquare, Volume2, Trash2, Mic, Zap, ShieldAlert } from 'lucide-react';
+import { initBatteryMonitor, subscribeBattery, BatteryInfo, getBatteryAnalysisReport } from './engine/batteryMonitor';
 
 export default function App() {
   // Inicialización de sesiones desde localStorage
@@ -44,6 +46,7 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('Meteory IA está procesando...');
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isBatteryInspectorOpen, setIsBatteryInspectorOpen] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
   const [confirmDeleteActive, setConfirmDeleteActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -55,6 +58,57 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  const [batteryInfo, setBatteryInfo] = useState<BatteryInfo>({
+    supported: false,
+    level: 0.85,
+    charging: false,
+    chargingTime: 0,
+    dischargingTime: 3600,
+    formattedPercentage: '85% (Estimado)'
+  });
+  const [lowBatteryAlertActive, setLowBatteryAlertActive] = useState(false);
+
+  const trigger10PercentLowBatteryAlert = () => {
+    setLowBatteryAlertActive(true);
+    const warningText = "¡Atención! El dispositivo está al 10% de batería y necesita urgentemente ser conectado al cargador.";
+    speakTextWithGender(warningText, voiceGender);
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification('⚠️ ALERTA DE BATERÍA CRÍTICA (10%)', {
+          body: 'El dispositivo tiene solo 10% de carga. ¡Por favor conéctelo urgentemente al cargador!',
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            new Notification('⚠️ ALERTA DE BATERÍA CRÍTICA (10%)', {
+              body: 'El dispositivo tiene solo 10% de carga. ¡Por favor conéctelo urgentemente al cargador!',
+            });
+          }
+        });
+      }
+    }
+  };
+
+  useEffect(() => {
+    initBatteryMonitor((info) => {
+      if (info.supported && info.level <= 0.10 && !info.charging) {
+        trigger10PercentLowBatteryAlert();
+      }
+    }).then((info) => setBatteryInfo(info));
+
+    const unsubscribeBattery = subscribeBattery((info) => {
+      setBatteryInfo(info);
+      if (info.supported && info.level > 0.12) {
+        setLowBatteryAlertActive(false);
+      }
+    });
+
+    return () => {
+      unsubscribeBattery();
+    };
+  }, [voiceGender]);
 
   // Sesión activa actual
   const currentSession =
@@ -178,7 +232,6 @@ export default function App() {
     setVoiceGender(nextGender);
     saveVoiceGender(nextGender);
 
-    // Reproducir una confirmación corta en voz alta con la nueva voz
     const greetingConfirmation =
       nextGender === 'female'
         ? 'Voz femenina activada para Meteory.'
@@ -210,7 +263,8 @@ export default function App() {
 
     const { reply, classification, searchTopic, mathResult, timeData } = processInput(
       userText,
-      messages
+      messages,
+      getBatteryAnalysisReport(batteryInfo)
     );
 
     // 2. Si se detectó una consulta o cálculo matemático
@@ -341,7 +395,8 @@ export default function App() {
 
     const { reply, classification, searchTopic, mathResult, timeData } = processInput(
       userText,
-      messages
+      messages,
+      getBatteryAnalysisReport(batteryInfo)
     );
 
     // 2. Si es consulta matemática
@@ -435,7 +490,6 @@ export default function App() {
   const mathCalculationsDone = messages.filter((m) => m.mathResult).length;
   const timeQueriesDone = messages.filter((m) => m.timeData).length;
 
-  // Extraer el último tema activo de la sesión
   const activeTopic = messages
     .slice()
     .reverse()
@@ -466,6 +520,8 @@ export default function App() {
         voiceGender={voiceGender}
         onToggleVoiceGender={handleToggleVoiceGender}
         isAudioPlaying={isAudioPlaying}
+        batteryInfo={batteryInfo}
+        onOpenBatteryInspector={() => setIsBatteryInspectorOpen(true)}
       />
 
       {/* Main Layout con Sidebar y Chat Area */}
@@ -485,6 +541,33 @@ export default function App() {
 
         {/* Área Principal de Conversación */}
         <main className="flex-1 flex flex-col px-2 sm:px-4 md:px-6 max-w-4xl mx-auto w-full h-full min-h-0 overflow-hidden">
+          
+          {/* Alerta Destacada de Batería Crítica 10% */}
+          {lowBatteryAlertActive && (
+            <div className="mt-2 mb-1 p-3 rounded-2xl bg-rose-950/95 border border-rose-500/80 text-rose-100 flex items-center justify-between gap-3 text-xs shadow-xl animate-pulse shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+                <span className="font-bold text-white truncate font-['Space_Grotesk']">
+                  ¡ALERTA CRÍTICA!: El dispositivo está al 10% de batería. ¡Conéctelo urgentemente al cargador!
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={trigger10PercentLowBatteryAlert}
+                  className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] transition-colors cursor-pointer"
+                >
+                  Escuchar XTTS
+                </button>
+                <button
+                  onClick={() => setLowBatteryAlertActive(false)}
+                  className="px-2 py-1 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 text-[10px] transition-colors cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Banner de Estado y Memoria Activa */}
           <div className="mb-2 p-2.5 sm:p-3 rounded-2xl bg-[#0c1024]/90 backdrop-blur-md border border-indigo-950/80 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0 shadow-sm">
             <div className="flex items-center gap-2 min-w-0">
@@ -506,6 +589,16 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2 text-slate-400 text-[10px] sm:text-[11px] ml-auto">
+              {/* Botón rápido para abrir estado de batería */}
+              <button
+                onClick={() => setIsBatteryInspectorOpen(true)}
+                className="flex items-center gap-1 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-lg border border-emerald-500/20 font-mono transition-colors cursor-pointer"
+                title="Inspeccionar batería y 100 preguntas"
+              >
+                <span>⚡</span>
+                <span>{batteryInfo.formattedPercentage.split(' ')[0]}</span>
+              </button>
+
               <span className="flex items-center gap-1 text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-lg border border-sky-500/20 font-mono" title="Consultas de hora y fecha">
                 <Clock className="w-3 h-3 text-sky-400" /> {timeQueriesDone}
               </span>
@@ -516,7 +609,6 @@ export default function App() {
                 <Globe className="w-3 h-3 text-amber-400" /> {webSearchesDone}
               </span>
 
-              {/* Botón para eliminar o vaciar la conversación activa */}
               {confirmDeleteActive ? (
                 <div
                   className="flex items-center gap-1 px-2 py-0.5 rounded-xl bg-rose-950/90 border border-rose-600/60 text-rose-200 animate-in fade-in"
@@ -563,7 +655,7 @@ export default function App() {
                   Meteory IA • Chat Autónomo
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-400 max-w-md leading-relaxed mb-3">
-                  Conversación limpia e independiente. Pregúntame sobre cualquier tema, realiza cálculos, pide la hora mundial o activa búsquedas web en vivo:
+                  Conversación limpia e independiente. Pregúntame sobre cualquier tema, tu nivel de batería, realiza cálculos o pide búsquedas web en vivo:
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
                   <button
@@ -572,6 +664,12 @@ export default function App() {
                   >
                     <Mic className="w-4 h-4 text-amber-400 animate-pulse" />
                     <span>Iniciar Llamada de Voz en Vivo</span>
+                  </button>
+                  <button
+                    onClick={() => setIsBatteryInspectorOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <span>⚡ Ver Batería ({batteryInfo.formattedPercentage.split(' ')[0]})</span>
                   </button>
                 </div>
                 <SuggestedPrompts onSelectPrompt={handleSendMessage} />
@@ -587,7 +685,6 @@ export default function App() {
                   />
                 ))}
 
-                {/* Si la conversación tiene solo 1 mensaje, sugerir temas adicionales */}
                 {messages.length === 1 && (
                   <SuggestedPrompts onSelectPrompt={handleSendMessage} />
                 )}
@@ -636,7 +733,7 @@ export default function App() {
               disabled={isProcessing}
             />
             <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500 px-1 font-mono">
-              <span className="truncate">Meteory IA • 100% Autónomo & Web Abierta</span>
+              <span className="truncate">Meteory IA • Monitoreo de Batería & Voz XTTS v2</span>
               <button
                 onClick={() => setIsSidebarOpen(true)}
                 className="hover:text-amber-400 transition-colors flex items-center gap-1.5 text-[11px] shrink-0 ml-2 font-['Space_Grotesk'] cursor-pointer"
@@ -664,6 +761,16 @@ export default function App() {
         isOpen={isInspectorOpen}
         onClose={() => setIsInspectorOpen(false)}
         onTestPhrase={handleSendMessage}
+      />
+
+      {/* Modal Analizador de Batería & 100 Preguntas */}
+      <BatteryInspectorModal
+        isOpen={isBatteryInspectorOpen}
+        onClose={() => setIsBatteryInspectorOpen(false)}
+        batteryInfo={batteryInfo}
+        voiceGender={voiceGender}
+        onSendQuery={handleSendMessage}
+        onTriggerLowBatteryTest={trigger10PercentLowBatteryAlert}
       />
     </div>
   );
