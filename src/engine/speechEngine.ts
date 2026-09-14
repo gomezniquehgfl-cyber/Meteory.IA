@@ -1,3 +1,5 @@
+import { getApiUrl } from '../lib/apiConfig';
+
 export type VoiceGender = 'female' | 'male';
 
 export interface TTSOptions {
@@ -108,8 +110,88 @@ export function stopSpeaking(): void {
 }
 
 /**
- * Reproduce texto exclusivamente con XTTS v2 (Neural HD ultra-realista en español).
- * Sin voces robóticas ni fallbacks sintéticos del navegador.
+ * Síntesis de voz nativa del sistema (Google TTS / Web Speech API) como respaldo infalible
+ */
+export function speakNativeSpeechSynthesis(
+  text: string,
+  gender: VoiceGender,
+  onEnd?: () => void
+): boolean {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    notifyAudioStatus(false);
+    onEnd?.();
+    return false;
+  }
+
+  try {
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.0;
+    utterance.pitch = gender === 'female' ? 1.15 : 0.9;
+
+    const voices = window.speechSynthesis.getVoices();
+    const spanishVoices = voices.filter((v) => v.lang.startsWith('es'));
+
+    if (spanishVoices.length > 0) {
+      const preferredVoice = spanishVoices.find((v) => {
+        const name = v.name.toLowerCase();
+        if (gender === 'female') {
+          return (
+            name.includes('female') ||
+            name.includes('femenin') ||
+            name.includes('google español') ||
+            name.includes('sabina') ||
+            name.includes('monica') ||
+            name.includes('lucia') ||
+            name.includes('paulina') ||
+            name.includes('helena')
+          );
+        } else {
+          return (
+            name.includes('male') ||
+            name.includes('masculin') ||
+            name.includes('jorge') ||
+            name.includes('pablo') ||
+            name.includes('diego') ||
+            name.includes('carlos') ||
+            name.includes('raul')
+          );
+        }
+      }) || spanishVoices[0];
+
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+    }
+
+    utterance.onend = () => {
+      currentAudioElement = null;
+      notifyAudioStatus(false);
+      onEnd?.();
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Error en síntesis nativa:', e);
+      currentAudioElement = null;
+      notifyAudioStatus(false);
+      onEnd?.();
+    };
+
+    notifyAudioStatus(true, text.slice(0, 45));
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch (err) {
+    console.warn('Excepción en síntesis nativa de voz:', err);
+    notifyAudioStatus(false);
+    onEnd?.();
+    return false;
+  }
+}
+
+/**
+ * Reproduce texto con XTTS v2 (Neural HD ultra-realista en español) y respaldo nativo automático.
  */
 export async function speakTextWithGender(
   text: string,
@@ -123,8 +205,10 @@ export async function speakTextWithGender(
 
   notifyAudioStatus(true, cleaned.slice(0, 45));
 
+  // 1. Intentar motor neuronal XTTS v2 en servidor (Soporta Web y APK vía URL remota)
   try {
-    const response = await fetch('/api/tts', {
+    const ttsEndpoint = getApiUrl('/api/tts');
+    const response = await fetch(ttsEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -150,12 +234,11 @@ export async function speakTextWithGender(
         };
 
         audio.onerror = (e) => {
-          console.warn('Error al reproducir audio XTTS v2:', e);
+          console.warn('Error al reproducir audio de XTTS v2, activando respaldo nativo:', e);
           if (currentAudioElement === audio) {
             currentAudioElement = null;
-            notifyAudioStatus(false);
-            onEnd?.();
           }
+          speakNativeSpeechSynthesis(cleaned, gender, onEnd);
         };
 
         await audio.play();
@@ -163,10 +246,9 @@ export async function speakTextWithGender(
       }
     }
   } catch (err) {
-    console.warn('Fallo en la llamada XTTS v2 /api/tts:', err);
+    console.warn('Fallo en la llamada XTTS v2 /api/tts, activando respaldo nativo:', err);
   }
 
-  notifyAudioStatus(false);
-  onEnd?.();
-  return false;
+  // 2. Respaldo nativo de voz de dispositivo (Google TTS / WebSpeech) si falla la API
+  return speakNativeSpeechSynthesis(cleaned, gender, onEnd);
 }

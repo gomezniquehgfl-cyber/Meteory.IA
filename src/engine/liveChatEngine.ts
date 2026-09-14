@@ -1,4 +1,5 @@
 import { LiveChatMessage, LiveUser } from '../types';
+import { getApiUrl } from '../lib/apiConfig';
 
 type Listener<T> = (data: T) => void;
 
@@ -125,7 +126,7 @@ class LiveChatEngine {
   public async fetchHistory() {
     if (typeof window === 'undefined') return;
     try {
-      const res = await fetch('/api/live-chat/messages');
+      const res = await fetch(getApiUrl('/api/live-chat/messages'));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.messages)) {
@@ -356,7 +357,7 @@ class LiveChatEngine {
       );
     } else {
       try {
-        const res = await fetch('/api/live-chat/send', {
+        const res = await fetch(getApiUrl('/api/live-chat/send'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

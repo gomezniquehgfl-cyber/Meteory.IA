@@ -1,4 +1,5 @@
 import { WebSearchData } from '../types';
+import { getApiUrl } from '../lib/apiConfig';
 
 /**
  * Servicio para consultar el endpoint local /api/search
@@ -8,7 +9,8 @@ export async function executeWebSearch(query: string): Promise<WebSearchData> {
   const startTime = performance.now();
 
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const searchUrl = getApiUrl(`/api/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(searchUrl);
 
     if (!res.ok) {
       throw new Error(`Error en el servidor de búsqueda: ${res.statusText}`);
