@@ -52,10 +52,9 @@ jobs:
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           EOF
 
-          # Create AndroidManifest.xml
+          # Create AndroidManifest.xml (without obsolete package attribute and missing icons)
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-              package="com.meteory.ia.app">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -63,9 +62,7 @@ jobs:
               
               <application
                   android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
                   android:label="Meteory.IA"
-                  android:roundIcon="@mipmap/ic_launcher"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.NoActionBar"
                   android:usesCleartextTraffic="true">
