@@ -1,0 +1,6 @@
+{
+  "name": "Meteory IA",
+  "description": "IA conversacional avanzada con chat global en vivo, detección de usuarios activos, modo de voz en vivo, memoria contextual permanente y búsqueda web en tiempo real.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
