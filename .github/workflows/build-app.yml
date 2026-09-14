@@ -106,21 +106,11 @@ jobs:
           }
           EOF
 
-          # Create build.gradle (root)
+          # Create build.gradle (root) - Compatible with Gradle 8+ settings repositories
           cat << 'EOF' > android/build.gradle
           buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
               dependencies {
                   classpath 'com.android.tools.build:gradle:8.1.0'
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
               }
           }
           task clean(type: Delete) {
@@ -128,7 +118,7 @@ jobs:
           }
           EOF
 
-          # Create settings.gradle
+          # Create settings.gradle with PREFER_SETTINGS mode
           cat << 'EOF' > android/settings.gradle
           pluginManagement {
               repositories {
@@ -138,7 +128,7 @@ jobs:
               }
           }
           dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
               repositories {
                   google()
                   mavenCentral()
@@ -218,8 +208,8 @@ jobs:
           EOF
 
           cd android
-          gradle wrapper || true
-          ./gradlew assembleDebug || gradle assembleDebug
+          gradle wrapper --gradle-version 8.4
+          ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
