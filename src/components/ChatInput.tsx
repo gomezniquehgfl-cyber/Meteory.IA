@@ -25,11 +25,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setText('');
   };
 
-  useEffect(() => {
-    if (!disabled && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [disabled]);
+  // No auto-focusing to prevent mobile keyboard from popping up automatically.
+  // The user should tap the input field explicitly when they want to type.
 
   return (
     <form onSubmit={handleSubmit} className="relative flex items-center gap-1.5 sm:gap-2 w-full max-w-full">

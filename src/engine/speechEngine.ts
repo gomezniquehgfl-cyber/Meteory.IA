@@ -205,48 +205,32 @@ export async function speakTextWithGender(
 
   notifyAudioStatus(true, cleaned.slice(0, 45));
 
-  // 1. Intentar motor neuronal XTTS v2 en servidor (Soporta Web y APK vía URL remota)
+  // 1. Intentar motor neuronal XTTS v2 en servidor usando streaming directo por GET para máximo rendimiento (Sin tirones de Base64)
   try {
-    const ttsEndpoint = getApiUrl('/api/tts');
-    const response = await fetch(ttsEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: cleaned,
-        gender,
-      }),
-    });
+    const streamUrl = getApiUrl(`/api/tts/stream?text=${encodeURIComponent(cleaned)}&gender=${gender}`);
+    const audio = new Audio(streamUrl);
+    currentAudioElement = audio;
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.audioDataUrl) {
-        const audio = new Audio(data.audioDataUrl);
-        currentAudioElement = audio;
-
-        audio.onended = () => {
-          if (currentAudioElement === audio) {
-            currentAudioElement = null;
-            notifyAudioStatus(false);
-            onEnd?.();
-          }
-        };
-
-        audio.onerror = (e) => {
-          console.warn('Error al reproducir audio de XTTS v2, activando respaldo nativo:', e);
-          if (currentAudioElement === audio) {
-            currentAudioElement = null;
-          }
-          speakNativeSpeechSynthesis(cleaned, gender, onEnd);
-        };
-
-        await audio.play();
-        return true;
+    audio.onended = () => {
+      if (currentAudioElement === audio) {
+        currentAudioElement = null;
+        notifyAudioStatus(false);
+        onEnd?.();
       }
-    }
+    };
+
+    audio.onerror = (e) => {
+      console.warn('Error al reproducir streaming de XTTS v2, activando respaldo nativo:', e);
+      if (currentAudioElement === audio) {
+        currentAudioElement = null;
+      }
+      speakNativeSpeechSynthesis(cleaned, gender, onEnd);
+    };
+
+    await audio.play();
+    return true;
   } catch (err) {
-    console.warn('Fallo en la llamada XTTS v2 /api/tts, activando respaldo nativo:', err);
+    console.warn('Fallo al reproducir streaming XTTS v2, activando respaldo nativo:', err);
   }
 
   // 2. Respaldo nativo de voz de dispositivo (Google TTS / WebSpeech) si falla la API

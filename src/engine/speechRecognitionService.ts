@@ -167,7 +167,38 @@ export class MeteoryVoiceListener {
    */
   public async startAudioVisualizer(): Promise<boolean> {
     try {
-      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      if (typeof window === 'undefined') {
+        return false;
+      }
+
+      // Evitar doble captura de micrófono en WebView Android (causa bloqueos de recursos, tirones y lag)
+      const origin = window.location.origin;
+      if (origin.includes('androidplatform.net') || origin.startsWith('file:') || origin === 'null') {
+        console.log('Optimizando visualizador para Android APK para evitar colisión de micrófono.');
+        
+        let mockFrameId: any = null;
+        const mockLevelLoop = () => {
+          if (!this.isRunning) {
+            this.onSoundLevel?.(0);
+          } else {
+            // Un pulso rítmico estético cuando está escuchando de verdad
+            const time = Date.now() * 0.008;
+            const wave = Math.sin(time) * 20 + Math.cos(time * 1.5) * 10;
+            const normalized = Math.max(10, Math.min(85, Math.round(40 + wave)));
+            this.onSoundLevel?.(normalized);
+          }
+          mockFrameId = requestAnimationFrame(() => {
+            // Retardo para reducir consumo de CPU en el bucle
+            setTimeout(mockLevelLoop, 60);
+          });
+          this.animFrameId = mockFrameId;
+        };
+        
+        mockLevelLoop();
+        return true;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
         return false;
       }
 

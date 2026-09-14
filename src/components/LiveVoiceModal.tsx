@@ -116,6 +116,11 @@ export const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       return;
     }
 
+    // Cerrar teclado móvil activo para que no estorbe en el modo en vivo
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     const supported = isSpeechRecognitionSupported();
     setIsSupported(supported);
 
