@@ -45,6 +45,13 @@ jobs:
           # Copy built web assets to android assets for standalone app
           cp -r dist/* android/app/src/main/assets/
 
+          # Create gradle.properties with AndroidX support enabled
+          cat << 'EOF' > android/gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
+
           # Create AndroidManifest.xml
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -107,7 +114,7 @@ jobs:
           }
           EOF
 
-          # Create build.gradle (root) with AGP 8.5.0 compatible with Gradle 8.5+ / 9+
+          # Create build.gradle (root) with AGP 8.5.0
           cat << 'EOF' > android/build.gradle
           buildscript {
               repositories {
